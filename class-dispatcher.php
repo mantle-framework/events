@@ -57,7 +57,7 @@ class Dispatcher implements Dispatcher_Contract {
 	 * @param int          $priority Event priority.
 	 * @param  \Closure|string $listener Listener callback.
 	 */
-	public function listen( $events, $listener, int $priority = 10 ): void {
+	public function listen( $events, $listener, int $priority = 10 ) {
 		foreach ( (array) $events as $event ) {
 			add_action(
 				$event,
@@ -72,6 +72,7 @@ class Dispatcher implements Dispatcher_Contract {
 	 * Determine if a given event has listeners.
 	 *
 	 * @param  string $event_name Event name.
+	 * @return bool
 	 */
 	public function has_listeners( $event_name ): bool {
 		return has_filter( $event_name );
@@ -81,8 +82,9 @@ class Dispatcher implements Dispatcher_Contract {
 	 * Register an event subscriber with the dispatcher.
 	 *
 	 * @param  object|string $subscriber
+	 * @return void
 	 */
-	public function subscribe( $subscriber ): void {
+	public function subscribe( $subscriber ) {
 		$subscriber = $this->resolve_subscriber( $subscriber );
 
 		$subscriber->subscribe( $this );
@@ -130,7 +132,7 @@ class Dispatcher implements Dispatcher_Contract {
 	 */
 	protected function parse_event_and_payload( $event, $payload ) {
 		if ( is_object( $event ) ) {
-			[ $payload, $event ] = [ [ $event ], $event::class ];
+			[ $payload, $event ] = [ [ $event ], get_class( $event ) ];
 		}
 
 		return [ $event, Arr::wrap( $payload ) ];
@@ -173,21 +175,25 @@ class Dispatcher implements Dispatcher_Contract {
 	 * Register an event listener with the dispatcher.
 	 *
 	 * @param  \Closure|string $listener
+	 * @return \Closure
 	 */
 	public function make_listener( $listener ): Closure {
 		if ( is_string( $listener ) ) {
 			return $this->create_class_listener( $listener );
 		}
 
-		return fn ( ...$payload) => $this->create_action_callback(
-			$listener,
-		)( ...array_values( $payload ) );
+		return function ( ...$payload ) use ( $listener ) {
+			return $this->create_action_callback(
+				$listener,
+			)( ...array_values( $payload ) );
+		};
 	}
 
 	/**
 	 * Create a class based listener using the IoC container.
 	 *
 	 * @param  string $listener
+	 * @return \Closure
 	 */
 	public function create_class_listener( $listener ): Closure {
 		return function ( ...$payload ) use ( $listener ) {
@@ -229,10 +235,11 @@ class Dispatcher implements Dispatcher_Contract {
 	 * @param string|object $event Event to remove.
 	 * @param callable|string $listener Listener to remove.
 	 * @param int $priority Priority of the listener.
+	 * @return void
 	 */
-	public function forget( $event, $listener = null, int $priority = 10 ): void {
+	public function forget( $event, $listener = null, int $priority = 10 ) {
 		if ( is_object( $event ) ) {
-			$event = $event::class;
+			$event = get_class( $event );
 		}
 
 		if ( null === $listener ) {
